@@ -1,0 +1,443 @@
+---
+title: "Data Wrangling Project"
+output: html_document
+date: "2023-08-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE, fig.align='center'}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+library(magrittr)
+library(data.table)
+library(stringi)
+library(countrycode)
+
+```
+
+#### Importing Data
+
+
+```{r data}
+getwd()
+survey_data <- read.csv("survey_2023.csv")
+```
+
+#### 1.Create a new column called Birth_Month which has only the month portion of Birth_Month_Year
+
+
+```{r step_1}
+
+survey_data %<>% 
+  rowwise() %>% 
+  mutate(Birth_Month = str_split(Birth_Month_Year, ",")[[1]][1]) %>% 
+  mutate(Birth_Month = str_squish(str_to_title(Birth_Month)))
+
+survey_data %>% 
+  count(Birth_Month,  sort = TRUE)
+
+```
+
+#### 2. Create a new column called Birth_Year which has only the year portion of Birth_Month_Year.
+
+```{r step_2}
+survey_data %<>% 
+  rowwise() %>% 
+  mutate(Birth_Year = str_split(Birth_Month_Year, ",")[[1]][-1])
+
+survey_data %>% 
+  count(Birth_Year, sort = TRUE)
+
+```
+
+#### 3. Since the birth month and birth year were open ended fields, there are many inconsistencies in the data. Standardize the values for Birth_Month and Birth_Year.
+
+ - Fixing inconsistencies in `Birth_Month`
+
+```{r step_3.1, warning=FALSE}
+# Fixing inconsistencies
+survey_data <- survey_data %>% 
+  mutate(Birth_Month = ifelse(is.na(as.numeric(Birth_Month)), Birth_Month, month.name[as.numeric(Birth_Month)]))
+
+
+survey_data %>% 
+  count(Birth_Month, sort = TRUE)
+
+```
+
+
+ - Fixing inconsistencies in `Birth_Year`
+ 
+```{r step_3.2}
+
+# Fixing inconsistencies
+survey_data <- survey_data %>% 
+  mutate(Birth_Year = str_squish(Birth_Year))
+
+
+survey_data %>% 
+  filter(Birth_Year != "") %>% 
+  count(Birth_Year, sort = TRUE)
+
+```
+
+#### 4. Show the five most frequent birth months, and the five least frequent birth months.
+
+ - Five most frequent birth months
+ 
+```{r step_4.1, fig.align='center'}
+
+survey_data %>% 
+  count(Birth_Month, sort = TRUE) %>% 
+  ungroup() %>%
+  slice_max(order_by = n, n = 5) %>% 
+  ggplot(aes(reorder(Birth_Month, -n), n, fill = n)) + 
+  geom_col() +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five most frequent Birth Months", 
+       x = "Birth Month", y = "Frequency")
+  
+```
+
+ - Five least frequent birth months
+ 
+```{r step_4.2, fig.align='center'}
+survey_data %>% 
+  count(Birth_Month, sort = TRUE) %>% 
+  ungroup() %>%
+  slice_min(order_by = n, n = 5, with_ties = TRUE) %>%
+  ggplot(aes(reorder(Birth_Month, n), n, fill = n)) + 
+  geom_col() +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five least frequent Birth Months", 
+       x = "Birth Month", y = "Frequency")
+```
+
+#### 5. Show the five most frequent birth years, and the five least frequent birth year.
+
+ - Five most frequent birth years
+
+```{r step_5.1, fig.align='center'}
+survey_data %>% 
+  count(Birth_Year) %>% 
+  ungroup() %>%
+  slice_max(order_by = n, n = 5, with_ties = TRUE,na_rm = FALSE) %>% 
+  ggplot(aes(reorder(Birth_Year, -n), n, fill = n)) + 
+  geom_col() +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five most Frequent Birth Year", 
+       x = "Birth Year", y = "Frequency")
+
+
+```
+
+- Five least frequent birth years
+
+```{r step_5.2, fig.align='center'}
+survey_data %>% 
+  count(Birth_Year, sort = TRUE) %>% 
+  ungroup() %>%
+  slice_min(order_by = n, n = 5, with_ties = TRUE, na_rm = FALSE) %>% # Slicing the bottom five observations
+  ggplot(aes(reorder(Birth_Year, -n), n, fill = n)) + 
+  geom_col() +scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) + 
+  labs(title = "Five least frequent Birth Year", 
+       x = "Birth Year", y = "Frequency")
+```
+
+#### 6. The State column was also open ended, so there are many inconsistencies. Clean this column to eliminate any non-US state, and to standardize the values for State.
+
+
+```{r step_6}
+# Fixing inconsistencies
+
+survey_data <- survey_data %>% 
+  mutate(State = str_trim(State)) %>% 
+  mutate(State = ifelse(str_length(State) > 2, state.abb[grep(str_to_lower(State), str_to_lower(state.name))][1], State))
+
+
+survey_data %>% 
+  filter(State != "")%>%
+  count(State, sort = TRUE) %>% 
+  na.omit()
+
+```
+
+
+#### 7. Show the five most frequent states, and the five least frequent state.
+
+ - Five most frequent states
+
+```{r step_7.1, fig.align='center'}
+
+survey_data %>% 
+  count(State, sort = TRUE) %>%  
+  ungroup() %>%
+  slice_max(order_by = n, n = 5) %>% 
+  na.omit() %>% 
+  ggplot(aes(reorder(State, -n), n, fill = n)) + 
+  geom_col() +
+  scale_y_continuous(breaks = seq(0,60, by = 5)) +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE),
+         x = guide_axis(check.overlap = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) + 
+  labs(title = "Five most frequent US State", 
+       x = "US State", y = "Frequency")
+```
+
+
+- Five least frequent states
+
+```{r step_7.2, fig.align='center'}
+
+survey_data %>% 
+  count(State, sort = TRUE) %>% 
+  ungroup() %>%
+  slice_min(order_by = n, n = 5, with_ties = FALSE) %>% 
+  ggplot(aes(reorder(State, -n), n, fill = n)) + 
+  geom_col() +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE),
+         x = guide_axis(check.overlap = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) + 
+  labs(title = "Five least frequent US State", 
+       x = "US State", y = "Frequency")
+
+```
+
+#### 8. Similar to State, the column Country needs to be standardized. Once you standardize it, show the five most frequent countries, and the five least frequent countries.
+
+```{r step_8.1}
+# Fixing inconsistencies
+# Put all the country into a standarized form
+
+survey_data %<>% 
+  mutate(Country = countryname(Country, destination = "iso3c", warn = TRUE))
+  
+
+survey_data %>% 
+  count(Country, sort = TRUE) %>% 
+  ungroup() %>% 
+  na.omit()
+```
+
+ - Five most frequent countries
+ 
+```{r step_8.2, fig.align='center'}
+survey_data %>% 
+  count(Country, sort = TRUE) %>%
+  ungroup() %>%
+  slice_max(order_by = n, n = 6, with_ties = FALSE) %>% 
+  ggplot(aes(reorder(Country, -n), n, fill = n)) + 
+  geom_col() +
+  coord_cartesian() +
+  scale_y_continuous(breaks = seq(0,85, by = 10)) +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five most frequent countries", 
+       x = "Country", y = "Frequency")
+
+```
+
+ 
+ - Five least frequent countries
+ 
+```{r step_8.3, fig.align='center'}
+survey_data %>% 
+  count(Country, sort = TRUE) %>%
+  ungroup() %>%
+  slice_min(order_by = n, n = 5, with_ties = FALSE) %>% 
+  ggplot(aes(reorder(Country, -n), n, fill = n)) + 
+  geom_col() +
+  scale_y_continuous(breaks = seq(0,1)) +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm")),
+        axis.title.x =  element_text(
+          margin = margin(t=0.5,r=0,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five least frequent countries", 
+       x = "Country", y = "Frequency")
+```
+
+ 
+ 
+#### 9. We want to clean the How_Hear_About_Program column by eliminating the number and any extra character portion in those responses (so we keep only the text portion). Show the five most frequent responses to this column.
+
+```{r step_9.1}
+survey_data <- survey_data %>% 
+  mutate(How_Hear_About_Program = str_replace_all(How_Hear_About_Program, "\\/", " "),
+         How_Hear_About_Program = str_replace_all(How_Hear_About_Program, "[[:punct:]]", ""),
+         How_Hear_About_Program = str_replace_all(How_Hear_About_Program,"[[:digit:]]+", ""))
+
+survey_data %>% 
+  count(How_Hear_About_Program, sort = TRUE)
+
+```
+
+
+ - Five most frequent responses of `How_Hear_About_Program column`
+ 
+```{r step_9.2, fig.align='center'}
+survey_data %>% 
+  count(How_Hear_About_Program, sort = TRUE) %>% 
+  slice_max(order_by = n, n = 5) %>%
+  ggplot(aes(reorder(How_Hear_About_Program, -n), n, fill = n)) + 
+  geom_col() +
+  guides(x = guide_axis(check.overlap = TRUE)) +
+  scale_fill_continuous(trans = 'reverse') +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.x = element_blank(),
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five most frequent ways you heard about the program",
+       y = "Frequency")
+```
+
+
+#### 10. We want to transform the data from wide to long on column Languages by duplicating the values of the other columns. You can use the comma as a separator for Languages. 
+
+```{r step_10}
+
+survey_data <- survey_data %>% 
+  separate_rows(Languages, sep = ",") %>% 
+  filter(Languages != "")
+
+
+survey_data %>% 
+  count(Languages, sort = TRUE)
+
+```
+ 
+ - Show the five most frequent languages
+
+```{r step_10.1, fig.align='center'}
+survey_data %>% 
+  count(Languages, sort = TRUE) %>% 
+  slice_max(order_by = n, n = 5) %>%
+  ggplot(aes(reorder(Languages, -n), n, fill = n)) +
+  geom_col() +
+  scale_fill_continuous(trans = 'reverse') +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.x = element_blank(),
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm"))) + 
+  labs(title = "Five most frequent languages",
+       x = "Languages", y = "Frequency") 
+
+
+```
+
+
+#### 11. Explore Hobies and fixing inconsistencies
+
+```{r step_11}
+
+survey_data <- survey_data %>% 
+  separate_rows(Hobbies, sep = ",") %>% 
+  mutate(Hobbies = str_squish(Hobbies),
+         Hobbies = str_to_sentence(Hobbies)) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, "(?i)read"),
+                   "Reading")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, "(?i)danc"),
+                   "Dancing")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, "(?i)board"),
+                   "Board and card games")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies,
+                                 "(?i)exercise|(?i)working|(?i)weight|(?i)yoga"),
+                   "Exercise and working out")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, 
+                                      "(?i)crochet|(?i)sewing"),
+                   "Crochet and sewing")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, 
+                                      "(?i)cook"),
+                   "Cooking")) %>% 
+  mutate(Hobbies = replace(Hobbies,
+                           str_detect(Hobbies, 
+                                      "(?i)explore|(?i)travel"),
+                   "Traveling"))
+  
+  
+survey_data %>% 
+  count(Hobbies, sort = TRUE)
+```
+
+
+ - The five most frequent hobbies
+ 
+```{r step_11.1, fig.align='center'}
+survey_data %>% 
+  count(Hobbies, sort = TRUE) %>% 
+  slice_max(order_by = n, n = 5) %>%  
+  ggplot(aes(reorder(Hobbies, -n), n, fill = n)) + 
+  geom_col() +
+  guides(x = guide_axis(check.overlap = TRUE)) +
+  scale_fill_continuous(trans = 'reverse') +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 15)) +
+  guides(fill = guide_legend(title = "Frequency", reverse = TRUE)) +
+  theme(legend.position = "right",
+        axis.title.x = element_blank(),
+        axis.title.y =  element_text(
+          margin = margin(t=0,r=0.5,b=0,l=0, unit = "cm"))) +
+  labs(title = "Five most frequent hobbies",
+       y = "Frequency")
+
+```
+
+
+
